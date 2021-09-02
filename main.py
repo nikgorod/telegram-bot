@@ -5,15 +5,17 @@ import requests
 import json
 from typing import Any, List, Optional, Dict
 
+
 load_dotenv()
 
 
 class Hotel:
 
-    def __init__(self, name: str, address: str, price: str):
+    def __init__(self, name: str, address: str, price: str, photos: List[str] = None):
         self.name = name
         self.address = address
         self.price = price
+        self.photos = photos
 
     def output(self):
         """
@@ -41,8 +43,7 @@ class HotelsAPI:
         if destination_id:
             if self.user_data.get('command') == 'lowprice':
                 result: List[Optional] = self.top_hotels(destination_id)
-                message = self.output(result)
-                return message
+                return result
         else:
             return False
 
@@ -74,7 +75,7 @@ class HotelsAPI:
 
     def top_hotels(self, code: str):
         """
-        Метод получающий топ отелей из API
+        Метод получающий топ отелей из API.
         :param code:
         :return list:
         """
@@ -93,8 +94,23 @@ class HotelsAPI:
 
         return top_hotels
 
-    @classmethod
-    def hotels_data(cls, hotel_dict: dict):
+    def get_hotel_photos(self, hotel_id: str):
+        url = "https://hotels4.p.rapidapi.com/properties/get-hotel-photos"
+        querystring = {"id": hotel_id}
+        headers = {
+            'x-rapidapi-host': "hotels4.p.rapidapi.com",
+            'x-rapidapi-key': "d157d36f35msh35f321ab5bcd130p1bea24jsn23c11cbf838e"
+        }
+        response = requests.request("GET", url, headers=headers, params=querystring)
+        photos_num = int(self.user_data.get('data')[2])
+
+        result_dict = json.loads(response.text)
+        hotel_images = result_dict.get('hotelImages')
+        photos = list(map(lambda hotel: hotel.get('baseUrl'), hotel_images[:photos_num]))
+
+        return photos
+
+    def hotels_data(self, hotel_dict: dict):
         """
         Метод создающий instance класса Hotel
         :param hotel_dict:
@@ -107,23 +123,15 @@ class HotelsAPI:
         except KeyError:
             address: str = hotel_dict['address']['locality']
         price: str = hotel_dict['ratePlan']['price']['current']
+        if len(self.user_data.get('data')) == 3:
+            hotel_id: str = hotel_dict['id']
+            photos = self.get_hotel_photos(hotel_id)
 
-        hotel: Optional = Hotel(name, address, price)
+            hotel: Optional = Hotel(name, address, price, photos)
+        else:
+            hotel: Optional = Hotel(name, address, price)
 
         return hotel
-
-    @classmethod
-    def output(cls, hotels_list: list):
-        """
-        Формирование информации по всем отелям
-        :param hotels_list:
-        :return str:
-        """
-        message = ''
-        for i_num, i_hotel in enumerate(hotels_list):
-            info = i_hotel.output()
-            message += '{num}. {info}\n'.format(num=i_num + 1, info=info)
-        return message
 
 
 class Bot(TeleBot):
@@ -136,6 +144,31 @@ class Bot(TeleBot):
         """
         user_data: List[str] = list()
 
+        def get_photos_num(message: Any) -> None:
+            """
+            Функция принимающая кол-во фото для каждого отеля.
+            :param message:
+            :return None:
+            """
+            user_data.append(message.text.lower())
+            self.send_message(chat_id=chat_id, text='Выполняется поиск...')
+            self.parse('lowprice', user_data, chat_id)
+
+        def get_photos(message: Any):
+            """
+            Функция обрабатывающая ответ пользователя.
+            :param message:
+            :return None:
+            """
+
+            if message.text.lower() == 'да':
+                msg = self.send_message(chat_id=message.from_user.id, text='Введите пожалуйста кол-во фото отеля'
+                                                                           '(от 2 до 10):')
+                self.register_next_step_handler(msg, get_photos_num)
+            else:
+                self.send_message(chat_id=chat_id, text='Выполняется поиск...')
+                self.parse('lowprice', user_data, chat_id)
+
         def get_num(message: Any) -> None:
             """
             Функция принимающая кол-во отелей от пользователя
@@ -143,7 +176,9 @@ class Bot(TeleBot):
             :return None:
             """
             user_data.append(message.text.lower())
-            self.parse('lowprice', user_data, chat_id)
+            photo_msg = self.send_message(chat_id=message.from_user.id,
+                                          text='Вывести фото для каждого отеля (Да/Нет)?')
+            self.register_next_step_handler(photo_msg, get_photos)
 
         def get_city(message: Any) -> None:
             """
@@ -170,17 +205,38 @@ class Bot(TeleBot):
         instance: Optional = HotelsAPI(command, data)
         search: Optional = instance.get_hotels()
         if search:
-            self.send_message(chat_id, str(search))
+            self.output_info(search, chat_id)
+            self.send_message(chat_id, "Список команд:\n"
+                                       "/help\n"
+                                       "/lowprice(топ дешёвых отелей в городе)")
         else:
             self.send_message(chat_id, 'Убедитесь в правильности ввода данных!\nПопробуйте еще раз!\n'
                                        '/lowprice')
+
+    def output_info(self, hotels, chat_id: Any):
+        """
+        Метод выводящий информация пользователю
+        :param hotels:
+        :param chat_id:
+        :return:
+        """
+
+        for i_num, i_hotel in enumerate(hotels):
+            message = '{num}. {hotel}'.format(num=str(i_num + 1), hotel=i_hotel.output())
+            self.send_message(chat_id, message)
+
+            if i_hotel.photos is not None:
+
+                photos_size = list(map(lambda photo: photo.format(size='d'), i_hotel.photos))
+                for i_photo in photos_size:
+                    self.send_photo(chat_id, i_photo)
 
 
 my_token = os.getenv('bot_token')
 bot = Bot(my_token)
 
 
-@bot.message_handler(commands=['start', 'help', 'lowprice'])
+@bot.message_handler(commands=['start', 'help', 'lowprice', 'highprice'])
 def get_commands(command) -> None:
     """
     Функция для получения команды от пользователя
