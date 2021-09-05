@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import requests
 import json
 from typing import Any, List, Optional, Dict
-
+import re
 
 load_dotenv()
 
@@ -41,9 +41,8 @@ class HotelsAPI:
         """
         destination_id: str = self.get_destination_id()
         if destination_id:
-            if self.user_data.get('command') == 'lowprice':
-                result: List[Optional] = self.top_hotels(destination_id)
-                return result
+            result: List[Optional] = self.top_hotels(destination_id, self.user_data.get('command'))
+            return result
         else:
             return False
 
@@ -73,25 +72,51 @@ class HotelsAPI:
             return False
         return destination_id
 
-    def top_hotels(self, code: str):
+    def top_hotels(self, code: str, command: str):
         """
         Метод получающий топ отелей из API.
+        :param command:
         :param code:
         :return list:
         """
         url = "https://hotels4.p.rapidapi.com/properties/list"
 
-        querystring = {"destinationId": code, "pageNumber": "1", "pageSize": "25", "checkIn": "2021-08-21",
-                       "checkOut": "2021-08-20", "adults1": "1", "sortOrder": "PRICE", "locale": "en_US",
-                       "currency": "USD"}
+        if command == 'lowprice':
+            sort_order = "PRICE"
+            querystring = {"destinationId": code, "pageNumber": "1", "pageSize": "25", "checkIn": "2021-08-21",
+                           "checkOut": "2021-08-20", "adults1": "1", "sortOrder": sort_order, "locale": "en_US",
+                           "currency": "USD"}
+            hotels_num = int(self.user_data.get('data')[1])
+
+        elif command == 'highprice':
+            sort_order = "PRICE_HIGHEST_FIRST"
+            querystring = {"destinationId": code, "pageNumber": "1", "pageSize": "25", "checkIn": "2021-08-21",
+                           "checkOut": "2021-08-20", "adults1": "1", "sortOrder": sort_order, "locale": "en_US",
+                           "currency": "USD"}
+            hotels_num = int(self.user_data.get('data')[1])
+
+        else:
+            sort_order = "DISTANCE_FROM_LANDMARK"
+
+            price_range = re.findall(r'\d+', self.user_data.get('data')[1])
+            price_min = price_range[0]
+            price_max = price_range[1]
+
+            distance_range = re.findall(r'\d+', self.user_data.get('data')[2])
+            distance_min = int(distance_range[0])
+            distance_max = int(distance_range[1])
+
+            hotels_num = int(self.user_data.get('data')[3])
+
+            querystring = {"destinationId": code, "pageNumber": "1", "pageSize": "25", "checkIn": "2021-08-21",
+                           "checkOut": "2021-08-20", "adults1": "1", "sortOrder": sort_order, "locale": "en_US",
+                           "currency": "USD", "priceMin": price_min, "priceMax": price_max}
 
         response = requests.request("GET", url, headers=self.headers, params=querystring)
 
         result_dict = json.loads(response.text)
         data: List[dict] = result_dict['data']['body']['searchResults']['results']
-        hotels_num = int(self.user_data.get('data')[1])
         top_hotels = list(map(lambda hotel: self.hotels_data(hotel), data[:hotels_num]))
-
         return top_hotels
 
     def get_hotel_photos(self, hotel_id: str):
@@ -123,6 +148,7 @@ class HotelsAPI:
         except KeyError:
             address: str = hotel_dict['address']['locality']
         price: str = hotel_dict['ratePlan']['price']['current']
+
         if len(self.user_data.get('data')) == 3:
             hotel_id: str = hotel_dict['id']
             photos = self.get_hotel_photos(hotel_id)
@@ -136,9 +162,10 @@ class HotelsAPI:
 
 class Bot(TeleBot):
 
-    def lowprice(self, chat_id: Any) -> None:
+    def lowprice_highprice(self, chat_id: Any, command: str) -> None:
         """
         Метод обрабатывающий команду lowprice, запрашивает данные у пользователя.
+        :param command:
         :param chat_id:
         :return None:
         """
@@ -152,7 +179,7 @@ class Bot(TeleBot):
             """
             user_data.append(message.text.lower())
             self.send_message(chat_id=chat_id, text='Выполняется поиск...')
-            self.parse('lowprice', user_data, chat_id)
+            self.parse(command, user_data, chat_id)
 
         def get_photos(message: Any):
             """
@@ -188,10 +215,10 @@ class Bot(TeleBot):
             """
             user_data.append(message.text)
             num_msg = self.send_message(chat_id=message.from_user.id, text='Введите пожалуйста кол-во отелей,'
-                                                                           ' которые необходимо вывести(не более 25):')
+                                                                           ' которые необходимо вывести(не более 23):')
             self.register_next_step_handler(num_msg, get_num)
 
-        city_msg = self.send_message(chat_id=chat_id, text='Введите пожалуйста город:')
+        city_msg = self.send_message(chat_id=chat_id, text='Введите пожалуйста город(на английском):')
         self.register_next_step_handler(city_msg, get_city)
 
     def parse(self, command: str, data: List[str], chat_id: Any) -> None:
@@ -208,10 +235,12 @@ class Bot(TeleBot):
             self.output_info(search, chat_id)
             self.send_message(chat_id, "Список команд:\n"
                                        "/help\n"
-                                       "/lowprice(топ дешёвых отелей в городе)")
+                                       "/lowprice(топ дешёвых отелей в городе)\n"
+                                       "/highprice(топ дорогих отелей в городе)")
         else:
             self.send_message(chat_id, 'Убедитесь в правильности ввода данных!\nПопробуйте еще раз!\n'
-                                       '/lowprice')
+                                       '/lowprice\n'
+                                       '/highprice')
 
     def output_info(self, hotels, chat_id: Any):
         """
@@ -236,7 +265,7 @@ my_token = os.getenv('bot_token')
 bot = Bot(my_token)
 
 
-@bot.message_handler(commands=['start', 'help', 'lowprice', 'highprice'])
+@bot.message_handler(commands=['start', 'help', 'lowprice', 'highprice', 'bestdeal'])
 def get_commands(command) -> None:
     """
     Функция для получения команды от пользователя
@@ -249,12 +278,17 @@ def get_commands(command) -> None:
         bot.send_message(command.from_user.id, 'Привет! Напиши /help')
 
     elif command.text == "/lowprice":
-        bot.lowprice(command.from_user.id)
+        bot.lowprice_highprice(command.from_user.id, 'lowprice')
+
+    elif command.text == '/highprice':
+        bot.lowprice_highprice(command.from_user.id, 'highprice')
 
     elif command.text == '/help':
         bot.send_message(command.from_user.id, "Список команд:\n"
                                                "/help\n"
-                                               "/lowprice(топ дешёвых отелей в городе)")
+                                               "/lowprice(топ дешёвых отелей в городе)\n"
+                                               "/highprice(топ дорогих отелей в городе)\n"
+                                               "/bestdeal(топ дешёвых отелей и близких к центру")
 
 
 bot.polling(none_stop=True, interval=0)
