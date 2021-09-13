@@ -39,7 +39,6 @@ class HotelsAPI:
             'x-rapidapi-key': "d157d36f35msh35f321ab5bcd130p1bea24jsn23c11cbf838e",
             'x-rapidapi-host': "hotels4.p.rapidapi.com"
         }
-        self.query = list()
 
     def get_hotels(self) -> Any:
         """
@@ -112,14 +111,6 @@ class HotelsAPI:
             price_min = price_range[0]
             price_max = price_range[1]
 
-            distance_range = re.findall(r'[0-9]*[.]?[0-9]', self.user_data.get('data')[2])
-
-            distance_min = float(distance_range[0])
-            distance_max = float(distance_range[1])
-
-            self.query.append(distance_min)
-            self.query.append(distance_max)
-
             hotels_num = int(self.user_data.get('data')[3])
 
             querystring = {"destinationId": code, "pageNumber": "1", "pageSize": "25", "checkIn": check_in,
@@ -176,8 +167,9 @@ class HotelsAPI:
 
         def check_distance(distance_to_center: str) -> bool:
 
-            real_distance_float = float((re.findall(r"[0-9]*[.]?[0-9]+", distance_to_center)[0]))
-            if self.query[0] <= real_distance_float <= self.query[1]:
+            distance_float = float(self.user_data.get('data')[2])
+            distance_to_center = float(re.findall(r"[0-9]*[.]?[0-9]+", distance_to_center)[0])
+            if distance_to_center <= distance_float:
                 return True
 
         distance = hotel_dict.get("landmarks")[0].get('distance')
@@ -249,8 +241,7 @@ class Bot(TeleBot):
             msg = self.send_message(chat_id=message.from_user.id, text='Введите, пожалуйста, '
                                                                        'диапазон расстояния в милях, на котором '
                                                                        'находится '
-                                                                       'отель от центра. '
-                                                                       '(через -):')
+                                                                       'отель от центра:')
             self.register_next_step_handler(msg, get_distance)
 
         def get_photos_num(message: Any) -> None:
@@ -275,11 +266,11 @@ class Bot(TeleBot):
             :return None:
             """
 
-            if message.text.lower() == 'да':
+            if message.text.lower() == 'yes':
                 msg = self.send_message(chat_id=message.from_user.id, text='Введите пожалуйста кол-во фото отеля:')
                 self.register_next_step_handler(msg, get_photos_num)
 
-            elif message.text.lower() == 'нет':
+            elif message.text.lower() == 'no':
                 self.send_message(chat_id=chat_id, text='Выполняется поиск...')
                 self.parse(command, user_data, chat_id)
 
@@ -300,7 +291,7 @@ class Bot(TeleBot):
                 return
             user_data.append(message.text.lower())
             photo_msg = self.send_message(chat_id=message.from_user.id,
-                                          text='Вывести фото для каждого отеля (Да/Нет)?')
+                                          text='Вывести фото для каждого отеля (Yes/No)?')
             self.register_next_step_handler(photo_msg, get_photos)
 
         def get_city(message: Any) -> None:
@@ -360,8 +351,8 @@ class Bot(TeleBot):
         text = str()
         for i_num, i_hotel in enumerate(hotels):
             if i_hotel is None:
-                self.send_message(chat_id, 'По запрашиваемым данным ничего не найдено!\n'
-                                           'Попробуйте изменить параметры запроса')
+                self.send_message(chat_id, 'По запрашиваемым данным , найдено {num} отеля!\n'
+                                           'Попробуйте изменить параметры запроса'.format(num=i_num))
                 return
             message = '{num}. {hotel}'.format(num=str(i_num + 1), hotel=i_hotel.output())
             text += message
