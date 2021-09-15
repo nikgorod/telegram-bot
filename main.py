@@ -7,7 +7,6 @@ from typing import Any, List, Optional, Dict
 import re
 import datetime
 
-
 load_dotenv()
 
 
@@ -220,12 +219,12 @@ class Bot(TeleBot):
             :return:
             """
             if not re.findall(r'[0-9]*[.]?[0-9]', message.text):
-                self.send_message(chat_id=message.from_user.id, text='Неверный ввод данных!!!')
+                self.send_message(chat_id=message.from_user.id, text='Incorrect data entry!!!')
                 return
             user_data.append(message.text)
-            num_msg = self.send_message(chat_id=message.from_user.id, text='Введите, пожалуйста, кол-во отелей, '
-                                                                           'которые необходимо вывести'
-                                                                           '(не более 23):')
+            num_msg = self.send_message(chat_id=message.from_user.id, text='Please enter the number of hotels, '
+                                                                           'that you need to output\n'
+                                                                           '(no more than 23):')
             self.register_next_step_handler(num_msg, get_num)
 
         def get_price(message: Any) -> None:
@@ -235,13 +234,13 @@ class Bot(TeleBot):
             :return:
             """
             if not re.findall(r'\d+', message.text):
-                self.send_message(chat_id=message.from_user.id, text='Неверный ввод данных!!!')
+                self.send_message(chat_id=message.from_user.id, text='Incorrect data entry!!!')
                 return
             user_data.append(message.text)
-            msg = self.send_message(chat_id=message.from_user.id, text='Введите, пожалуйста, '
-                                                                       'диапазон расстояния в милях, на котором '
-                                                                       'находится '
-                                                                       'отель от центра:')
+            msg = self.send_message(chat_id=message.from_user.id, text='Please enter '
+                                                                       'the range of the distance in miles at which '
+                                                                       'located '
+                                                                       'hotel from the center:')
             self.register_next_step_handler(msg, get_distance)
 
         def get_photos_num(message: Any) -> None:
@@ -253,10 +252,10 @@ class Bot(TeleBot):
             try:
                 int(message.text)
             except ValueError:
-                self.send_message(chat_id=message.from_user.id, text='Неверный ввод данных!!!')
+                self.send_message(chat_id=message.from_user.id, text='Incorrect data entry!!!')
                 return
             user_data.append(message.text.lower())
-            self.send_message(chat_id=chat_id, text='Выполняется поиск...')
+            self.send_message(chat_id=chat_id, text='Searching...')
             self.parse(command, user_data, chat_id)
 
         def get_photos(message: Any) -> None:
@@ -267,15 +266,16 @@ class Bot(TeleBot):
             """
 
             if message.text.lower() == 'yes':
-                msg = self.send_message(chat_id=message.from_user.id, text='Введите пожалуйста кол-во фото отеля:')
+                msg = self.send_message(chat_id=message.from_user.id, text='Please enter the number '
+                                                                           'of photos of the hotel:')
                 self.register_next_step_handler(msg, get_photos_num)
 
             elif message.text.lower() == 'no':
-                self.send_message(chat_id=chat_id, text='Выполняется поиск...')
+                self.send_message(chat_id=chat_id, text='Searching...')
                 self.parse(command, user_data, chat_id)
 
             else:
-                self.send_message(chat_id=message.from_user.id, text='Неверный ввод данных!!!')
+                self.send_message(chat_id=message.from_user.id, text='Incorrect data entry!!!')
                 return
 
         def get_num(message: Any) -> None:
@@ -287,11 +287,11 @@ class Bot(TeleBot):
             try:
                 int(message.text)
             except ValueError:
-                self.send_message(chat_id=message.from_user.id, text='Неверный ввод данных!!!')
+                self.send_message(chat_id=message.from_user.id, text='Incorrect data entry!!!')
                 return
             user_data.append(message.text.lower())
             photo_msg = self.send_message(chat_id=message.from_user.id,
-                                          text='Вывести фото для каждого отеля (Yes/No)?')
+                                          text='Output a photo for each hotel\n(Yes/No)?')
             self.register_next_step_handler(photo_msg, get_photos)
 
         def get_city(message: Any) -> None:
@@ -304,16 +304,16 @@ class Bot(TeleBot):
             user_data.append(message.text)
 
             if command == 'bestdeal':
-                msg = self.send_message(chat_id=message.from_user.id, text='Введите, пожалуйста, '
-                                                                           'диапазон цен в $ (через -):')
+                msg = self.send_message(chat_id=message.from_user.id, text='Please enter the price range '
+                                                                           'in $ (via -):')
                 self.register_next_step_handler(msg, get_price)
             else:
-                num_msg = self.send_message(chat_id=message.from_user.id, text='Введите, пожалуйста, кол-во отелей, '
-                                                                               'которые необходимо вывести\n'
-                                                                               '(не более 23):')
+                num_msg = self.send_message(chat_id=message.from_user.id, text='Please enter the number of hotels, '
+                                                                               'that you need to output\n'
+                                                                               '(no more than 23):')
                 self.register_next_step_handler(num_msg, get_num)
 
-        city_msg = self.send_message(chat_id=chat_id, text='Введите пожалуйста город\n(на английском):')
+        city_msg = self.send_message(chat_id=chat_id, text='Enter the city please:')
         self.register_next_step_handler(city_msg, get_city)
 
     def parse(self, command: str, data: List[str], chat_id: Any) -> None:
@@ -328,14 +328,14 @@ class Bot(TeleBot):
         search: Optional = instance.get_hotels()
         if search:
             self.output_info(search, chat_id)
-            self.send_message(chat_id, "Список команд:\n"
+            self.send_message(chat_id, "List of commands:\n"
                                        "/help\n"
-                                       "/lowprice(топ дешёвых отелей в городе)\n"
-                                       "/highprice(топ дорогих отелей в городе)\n"
-                                       "/bestdeal (топ дешёвых и близких отелей к центру)\n"
-                                       "/history (история запросов)")
+                                       "/lowprice (top cheap hotels)\n"
+                                       "/highprice (top expensive hotels)\n"
+                                       "/bestdeal (top cheap and near with city's center)\n"
+                                       "/history (get requests history)")
         else:
-            self.send_message(chat_id, 'К сожалению, ничего не удалось найти!\nПопробуйте еще раз!\n'
+            self.send_message(chat_id, 'Unfortunately, nothing could be found!\nTry again!\n'
                                        '/lowprice\n'
                                        '/highprice\n'
                                        '/bestdeal\n'
@@ -351,8 +351,8 @@ class Bot(TeleBot):
         text = str()
         for i_num, i_hotel in enumerate(hotels):
             if i_hotel is None:
-                self.send_message(chat_id, 'По запрашиваемым данным , найдено {num} отеля!\n'
-                                           'Попробуйте изменить параметры запроса'.format(num=i_num))
+                self.send_message(chat_id, 'By the requested, was found {num} hotels!\n'
+                                           'Try to change parameters'.format(num=i_num))
                 return
             message = '{num}. {hotel}'.format(num=str(i_num + 1), hotel=i_hotel.output())
             text += message
@@ -384,7 +384,7 @@ def get_commands(command) -> None:
     :return None:
     """
     if command.text == '/start':
-        bot.send_message(command.from_user.id, 'Привет! Напиши /help')
+        bot.send_message(command.from_user.id, 'Hi! Write /help')
 
     elif command.text == "/lowprice":
         bot.command_handler(command.from_user.id, 'lowprice')
@@ -401,12 +401,12 @@ def get_commands(command) -> None:
         bot.send_message(command.from_user.id, message)
 
     elif command.text == '/help':
-        bot.send_message(command.from_user.id, "Список команд:\n"
+        bot.send_message(command.from_user.id, "List of commands:\n"
                                                "/help\n"
-                                               "/lowprice (топ дешёвых отелей в городе)\n"
-                                               "/highprice (топ дорогих отелей в городе)\n"
-                                               "/bestdeal (топ дешёвых и близких отелей к центру)\n"
-                                               "/history (история запросов)")
+                                               "/lowprice (top cheap hotels)\n"
+                                               "/highprice (top expensive hotels)\n"
+                                               "/bestdeal (top cheap and near with city's center)\n"
+                                               "/history (get requests history)")
 
 
 bot.polling(none_stop=True, interval=0)
