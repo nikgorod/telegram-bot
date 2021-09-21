@@ -26,6 +26,13 @@ Before using you should download next libraries:
 
 You can do it this way: `pip install pyTelegramBotApi`
 
+Also this repository contains the following files:
++ loader.py (load all necessary data for software)
++ main.py (main script, launch it)
++ rapidapi.py
++ bot.py
++ .env.template (read this file)
+
 ### How to launch
 To launch the bot interface you should open Terminal on your PC and go over to bot's repository.
 After it use this command `python main.py`.
