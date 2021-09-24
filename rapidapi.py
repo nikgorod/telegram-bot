@@ -61,7 +61,7 @@ class HotelsAPI:
 
         try:
             response = requests.request("GET", url, headers=self.headers, params=querystring, timeout=15)
-        except TimeoutError:
+        except requests.exceptions.ReadTimeout:
             return
 
         city_dict: Dict = json.loads(response.text)
@@ -123,7 +123,11 @@ class HotelsAPI:
 
         result_dict = json.loads(response.text)
 
-        data = result_dict['data']['body']['searchResults']['results']
+        try:
+            data = result_dict['data']['body']['searchResults']['results']
+        except KeyError:
+            return
+
         if len(data) < hotels_num:
             search = data
         else:

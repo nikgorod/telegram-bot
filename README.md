@@ -23,6 +23,8 @@ Before using you should download next libraries:
 + json 
 + typing
 + re
++ peewee
++ SQLite(Database)
 
 You can do it this way: `pip install pyTelegramBotApi`
 
@@ -32,6 +34,7 @@ Also this repository contains the following files:
 + rapidapi.py
 + bot.py
 + .env.template (read this file)
++ db.py (database)
 
 ### How to launch
 To launch the bot interface you should open Terminal on your PC and go over to bot's repository.

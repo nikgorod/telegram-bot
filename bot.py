@@ -3,11 +3,12 @@ from typing import Any, List, Optional
 import datetime
 import re
 from rapidapi import HotelsAPI
+from db import append_data
 
 
 class Bot(TeleBot):
 
-    def command_handler(self, chat_id: Any, command: str) -> None:
+    def command_handler(self, chat_id: int, command: str) -> None:
         """
         Метод обрабатывающий команды lowprice, highprice, bestdeal запрашивает данные у пользователя.
         :param command:
@@ -15,12 +16,6 @@ class Bot(TeleBot):
         :return None:
         """
         user_data: List[str] = list()
-
-        with open('history.txt', 'a') as file:
-            text = '\nCommand: {command}\nDatetime: {time}\n'.format(command=command,
-                                                                     time=datetime.datetime.today().strftime(
-                                                                         "%d.%m.%Y %H:%M:%S"))
-            file.write(text)
 
         def get_distance(message: Any) -> None:
             """
@@ -137,7 +132,7 @@ class Bot(TeleBot):
         instance: Optional = HotelsAPI(command, data)
         search: Optional = instance.get_hotels()
         if search:
-            self.output_info(search, chat_id)
+            self.output_info(command, search, chat_id)
             self.send_message(chat_id, "List of commands:\n"
                                        "/help\n"
                                        "/lowprice (top cheap hotels)\n"
@@ -151,14 +146,17 @@ class Bot(TeleBot):
                                        '/bestdeal\n'
                                        '/history')
 
-    def output_info(self, hotels: list, chat_id: Any) -> None:
+    def output_info(self, command: str, hotels: list, chat_id: int) -> None:
         """
         Метод выводящий информацию пользователю
+        :param command:
         :param hotels:
         :param chat_id:
         :return None:
         """
-        text = str()
+        text = '\nCommand: {command}\nDatetime: {time}\n'.format(command=command,
+                                                                 time=datetime.datetime.today().strftime(
+                                                                     "%d.%m.%Y %H:%M:%S"))
         for i_num, i_hotel in enumerate(hotels):
             if i_hotel is None:
                 self.send_message(chat_id, 'By the requested, was found {num} hotels!\n'
@@ -173,8 +171,5 @@ class Bot(TeleBot):
                 photos_size = list(map(lambda photo: photo.format(size='d'), i_hotel.photos))
                 for i_photo in photos_size:
                     self.send_photo(chat_id, i_photo)
-        with open('history.txt', 'a') as file:
-            try:
-                file.write(text)
-            except UnicodeEncodeError:
-                file.write('EncodeError\n')
+
+        append_data(chat_id, text)
