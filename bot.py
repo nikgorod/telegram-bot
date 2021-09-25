@@ -3,7 +3,7 @@ from typing import Any, List, Optional
 import datetime
 import re
 from rapidapi import HotelsAPI
-from db import append_data
+from models import User
 
 
 class Bot(TeleBot):
@@ -161,7 +161,7 @@ class Bot(TeleBot):
             if i_hotel is None:
                 self.send_message(chat_id, 'By the requested, was found {num} hotels!\n'
                                            'Try to change parameters'.format(num=i_num))
-                return
+                break
             message = '{num}. {hotel}'.format(num=str(i_num + 1), hotel=i_hotel.output())
             text += message
             self.send_message(chat_id, message)
@@ -172,4 +172,4 @@ class Bot(TeleBot):
                 for i_photo in photos_size:
                     self.send_photo(chat_id, i_photo)
 
-        append_data(chat_id, text)
+        User.append_data(chat_id, text)

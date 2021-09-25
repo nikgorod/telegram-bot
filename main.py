@@ -1,5 +1,5 @@
 from loader import bot
-from db import output_data
+from models import User
 
 
 @bot.message_handler(commands=['start', 'help', 'lowprice', 'highprice', 'bestdeal', 'history'])
@@ -24,12 +24,17 @@ def get_commands(command) -> None:
         bot.command_handler(command.from_user.id, 'bestdeal')
 
     elif command.text == '/history':
-        message = output_data(command.from_user.id)
+        message = User.output_data(command.from_user.id)
         if message:
             bot.send_message(command.from_user.id, message)
         else:
             bot.send_message(command.from_user.id, 'No data available!')
-
+        bot.send_message(command.from_user.id, "List of commands:\n"
+                                               "/help\n"
+                                               "/lowprice (top cheap hotels)\n"
+                                               "/highprice (top expensive hotels)\n"
+                                               "/bestdeal (top cheap and near with city's center)\n"
+                                               "/history (get requests history)")
     elif command.text == '/help':
         bot.send_message(command.from_user.id, "List of commands:\n"
                                                "/help\n"
